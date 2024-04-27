@@ -1,51 +1,44 @@
 'use strict'
 
-import comment from './comment.model.js'
+import Comment from './comment.model.js'
 import Hotel from '../hotel/hotel.model.js'
 import User from '../user/user.model.js'
 
+//import { generateJwt } from '../utils/jwt.js'
 //import { checkUpdate } from '../utils/validator.js'
 
+// función addComment
 export const addComment = async (req, res) => {
     try {
         const { userId, hotelId, content } = req.body;
 
-        if (!userId || !hotelId || !content) {
-            return res.status(400).send({ message: 'Fields required to add a comment' });
+        // Obtener el usuario y el hotel de manera asincrónica
+        const [user, hotel] = await Promise.all([
+            User.findById(userId),
+            Hotel.findById(hotelId)
+        ]);
+
+        // Verificar si el usuario y el hotel existen en la base de datos
+        if (!user || !hotel) {
+            return res.status(404).send({ message: 'User or Hotel not found' });
         }
 
-       // Obtener los detalles del usuario desde el modelo Usuario
-        const user = await User.findById(userId);
-
-        if (!user) {
-            return res.status(404).send({ message: 'User not found' });
-        }
-
-        // Obtener los detalles del hotel desde el modelo Hotel
-        const hotel = await Hotel.findById(hotelId);
-
-        if (!hotel) {
-            return res.status(404).send({ message: 'Hotel not found' });
-        }
-
-         // Suponiendo que el usuario tiene propiedades nombre y apellido
-        const { firstName, lastName } = user;
+        // Suponiendo que el usuario tiene propiedades nombre y apellido
+        const { fullName } = user;
 
         // Crear una nueva instancia de comentario con los detalles del usuario, hotel y la fecha actual
         const newComment = new Comment({
-            userId,
-            hotelId,
+            user: userId,
             content,
-            userName: `${firstName} ${lastName}`,
+            fullName,
             date: new Date(),
+            hotel: hotelId // Asociar directamente el comentario al hotel
         });
 
+        // Guardar el nuevo comentario de manera asincrónica
         await newComment.save();
 
-        // Agregar el ID del comentario al array de comentarios del hotel
-        hotel.comments.push(newComment._id);
-        await hotel.save();
-
+        // Enviar una respuesta de éxito al cliente
         res.status(201).send({ message: 'Comment added successfully' });
     } catch (err) {
         console.error(err);
@@ -53,60 +46,81 @@ export const addComment = async (req, res) => {
     }
 };
 
-//export const 
-
-
-export const readComent = async (req,res)=>{
-    try{    
-        const comment = await comment.findd();
-        if(!comment || comment.length === 0){
-            return res.stastus(404).send({message: 'No comments found'})
+// Función para obtener todos los comentarios
+export const readComments = async (req, res) => {
+    try {
+        const comments = await Comment.find();
+        if (!comments || comments.length === 0) {
+            return res.status(404).send({ message: 'No comments found' });
         }
-        res.stastus(201).send(comment)
-    }catch(err){
-        console.error(err)
-        res.status(500).send({message: 'Error reading user'})
+        res.status(200).send(comments);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: 'Error reading comments' });
     }
-}
+};
 
-export const updatedComment = async (req,res)=>{
-    try{
-        const {commentId} = req.params;
-        const {content} = req.bosy;
+export const updateComment = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { content } = req.body;
 
-        if(!comment){
-            return res.stastus(400).send({message:'User content is required to update'})
+        // Verificar si el contenido del comentario está presente y válido
+        if (!content) {
+            return res.status(400).send({ message: 'Comment content is required for update' });
         }
-        const updatedComment = await comment.findByIdAndUpdate(
+
+        console.log('Updating comment with ID:', commentId);
+        console.log('New content:', content);
+
+        // Busca el comentario por su ID y actualízalo
+        const updatedComment = await Comment.findByIdAndUpdate(
             commentId,
-            {content},
-            {new: true}
+            { content },
+            { new: true }
         );
 
-        if(!updatedComment){
-            return res.stastus(400).send({message: 'Comment not found to update'})
+        console.log('Updated comment:', updatedComment);
+
+        // Si no se encuentra el comentario actualizado, devuelve un mensaje de error
+        if (!updatedComment) {
+            return res.status(404).send({ message: 'Comment not found to update' });
         }
-        res.stastus(200).send(updatedComment);
-    }catch(err){
-        console.error(err)
-        res.status(500).send({message: 'Error updated comment'})
+
+        // Envía la respuesta con el comentario actualizado
+        res.status(200).send(updatedComment);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: 'Error updating comment' });
     }
-}
+};
 
-export const deeteComment = async (req,res)=>{
-    try
-    {
-        const{commentId}= req.params;
+// Función para eliminar un comentario
+export const deleteComment = async (req, res) => {
+    try {
+        const { commentId } = req.params;
 
-        const deltedComment = await comment.findByIdAndDelete(commentId);
+        const deletedComment = await Comment.findByIdAndDelete(commentId);
 
-        if(!deltedComment){
-            return res.stastus(404).send({message: 'Comment not found to delete'})
+        if (!deletedComment) {
+            return res.status(404).send({ message: 'Comment not found to delete' });
         }
-        res.stastus(200).send({message: 'Comment successfully deleted'})
-    }catch(err)
-    {
-        console.error(err)
-        res.stastus(500).send({message: 'Error deleting comment'})
+
+        // Eliminar el ID del comentario del array de comentarios del hotel asociado
+        const hotel = await Hotel.findOneAndUpdate(
+            { comments: commentId },
+            { $pull: { comments: commentId } },
+            { new: true }
+        );
+
+        if (!hotel) {
+            console.error('Hotel not found for comment deletion');
+            return res.status(500).send({ message: 'Error deleting comment: Hotel not found' });
+        }
+
+        res.status(200).send({ message: 'Comment successfully deleted' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: 'Error deleting comment' });
     }
-}
+};
