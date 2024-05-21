@@ -11,6 +11,7 @@ import roomRoutes from '../src/room/room.routes.js'
 import eventRoutes from '../src/event/event.routes.js'
 import commentRoutes from '../src/comment/comment.routes.js'
 import billRoutes from '../src/bill/bill.routes.js'
+import reserveRoutes from '../src/reserve/reserve.routes.js'
 
 const app = express()
 config()
@@ -28,6 +29,7 @@ app.use('/room', roomRoutes)
 app.use('/event', eventRoutes)
 app.use('/comment', commentRoutes)
 app.use('/bill', billRoutes)
+app.use('/reserve', reserveRoutes)
 
 export const initServer = () => {
     app.listen(port)
