@@ -6,14 +6,9 @@ const billSchema = mongoose.Schema({
         ref: 'user',
         required: true
     },
-    room: {
+    reserves: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'room',
-        required: true
-    },
-    hotel: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'hotel',
+        ref: 'reserve',
         required: true
     },
     date: {

@@ -1,10 +1,10 @@
 import express from 'express'
 import { createBill, deleteBill } from './bill.controller.js'
+import { isAdmin, validateJwt } from '../middlewares/validate-jwt.js'
 
-const router = express.Router()
+const api = express.Router()
 
-router.post('/createBill', createBill)
+api.post('/createBill/:id', [validateJwt], [isAdmin], createBill)
+api.delete('/deleteBill/:id', [validateJwt], [isAdmin], deleteBill)
 
-router.delete('/deleteBill/:id', deleteBill)
-
-export default router
+export default api
